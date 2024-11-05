@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        .form{
+        display:flex;
+        flex-direction:column;
+        gap:1rem;
+        }
+        body{
+            width:100vw;
+            height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+
+        }
+        label{
+        display:block;
+        margin-bottom:.5rem;
+        }
+        input, textarea{
+        padding:.5rem;
+        }
+    </style>
+</head>
+<body>
+
+
+    <form method="post" action="{% url 'send' %}" class="form">
+        {% csrf_token %}
+        <div class="input-group">
+            <label for="name">Name</label>
+            <input type="text" placeholder="enter name" name="name" id="name">
+        </div>
+        <div class="input-group">
+            <label for="message">message</label>
+            <textarea id="message" placeholder="message" name="message"></textarea>
+        </div>
+
+        <div>
+            <button type="submit">Send Message</button>
+        </div>
+    </form>
+</body>
+</html>

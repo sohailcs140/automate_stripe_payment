@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stripe Payment</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        /* Basic styling */
+        #payment-form {
+            width: 300px;
+            margin: 50px auto;
+        }
+        .form-row {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stripe Payment Example</h1>
+    <div id="payment-status"></div>
+
+    <!-- Payment form for the first-time payment -->
+    <div id="payment-form">
+        <form id="payment-form" action="/create-payment-intent" method="POST">
+            <div class="form-row">
+                <label for="card-element">Credit or Debit Card</label>
+                <div id="card-element">
+                    <!-- A Stripe Element will be inserted here. -->
+                </div>
+            </div>
+            <button id="submit" type="submit">Pay</button>
+        </form>
+    </div>
+
+    <script>
+        // Initialize Stripe with your publishable key
+        var stripe = Stripe("pk_test_51QHOEIG01a9GyfhD9JQUpLu5YY4ns5lyl4M3Zg7aFQ5E7uyUW935hLdzrcUKqrvDw99xgsqFHvla54RVJha0KDlH00l8yRkaM9"); // Replace with your actual publishable key
+        var elements = stripe.elements();
+        var customerId = "";
+
+        // Create an instance of the card Element
+        var cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        // Handle form submission for first-time payment
+        var form = document.getElementById('payment-form');
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            // Disable the submit button to prevent multiple clicks
+            document.getElementById('submit').disabled = true;
+
+            // Create a payment method using the card element
+            stripe.createPaymentMethod('card', cardElement).then(function(result) {
+                if (result.error) {
+                    // Display error to the user
+                    document.getElementById('payment-status').innerText = result.error.message;
+                    document.getElementById('submit').disabled = false;
+                } else {
+                    // Send the payment method ID to your server to create a PaymentIntent
+                    fetch('/create-payment-intent/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            payment_method_id: result.paymentMethod.id,
+                            customer_email: 'testUser@gmail.com'
+
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        var clientSecret = data.client_secret;
+                        customerId = data.customer_id;
+                        alert(customerId);
+
+                        // Confirm the PaymentIntent
+                        stripe.confirmCardPayment(clientSecret, {
+                            payment_method: result.paymentMethod.id
+                        }).then(function(paymentResult) {
+                            alert(clientSecret);
+                            if (paymentResult.error) {
+                                // Display error to the user
+                                document.getElementById('payment-status').innerText = paymentResult.error.message;
+                                document.getElementById('submit').disabled = false;
+                            } else {
+                                if (paymentResult.paymentIntent.status === 'succeeded') {
+                                    // Payment successful
+                                    document.getElementById('payment-status').innerText = 'Payment succeeded!';
+                                    // Optionally, store the customer ID for future purchases
+                                }
+                            }
+                        });
+                    })
+                    .catch(function(error) {
+                        // Handle fetch error
+                        document.getElementById('payment-status').innerText = 'Error processing payment.';
+                        document.getElementById('submit').disabled = false;
+                    });
+                }
+            });
+        });
+    </script>
+
+    <!-- Future payment section -->
+    <div id="future-payment">
+        <h2>Future Purchase</h2>
+        <button id="pay-now" type="button">Pay Automatically</button>
+    </div>
+
+    <script>
+        // Handle automatic future payments (no need for card entry)
+        document.getElementById('pay-now').addEventListener('click', function() {
+            // Retrieve the customer ID from your server (after they logged in or registered)
+
+            fetch('/create-auto-payment-intent/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: customerId,  // Use saved customer ID from your database
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                var clientSecret = data.client_secret;
+
+                // Confirm the PaymentIntent using the saved payment method
+                stripe.confirmCardPayment(clientSecret).then(function(result) {
+                    if (result.error) {
+                        document.getElementById('payment-status').innerText = result.error.message;
+                    } else {
+                        if (result.paymentIntent.status === 'succeeded') {
+                            document.getElementById('payment-status').innerText = 'Payment for future purchase succeeded!';
+                        }
+                    }
+                });
+            })
+            .catch(function(error) {
+                document.getElementById('payment-status').innerText = 'Error processing future payment.';
+            });
+        });
+    </script>
+</body>
+</html>
